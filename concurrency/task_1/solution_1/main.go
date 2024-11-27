@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
 func calculations(v int) <-chan int {
@@ -14,14 +15,22 @@ func calculations(v int) <-chan int {
 	return ch
 }
 
-func funOut(channels ...<-chan int) <-chan int {
+func funIn(channels ...<-chan int) <-chan int {
 	out := make(chan int)
-	go func() {
-		for _, ch := range channels {
+	wg := sync.WaitGroup{}
+	wg.Add(len(channels))
+
+	for _, ch := range channels {
+		go func() {
+			defer wg.Done()
 			for el := range ch {
 				out <- el
 			}
-		}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
 		close(out)
 	}()
 
@@ -35,7 +44,7 @@ func main() {
 	}
 
 	var sum int
-	for v := range funOut(calcChannels...) {
+	for v := range funIn(calcChannels...) {
 		sum += v
 	}
 
